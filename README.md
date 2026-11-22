@@ -31,5 +31,6 @@ None of the upstream sources are patched.
 GDB is built without Python, the text UI, threads, the simulator and the other options a browser
 cannot use, and links once for both web workers and Node.
 Running it needs WebAssembly JavaScript Promise Integration (JSPI), which lets GDB wait for
-input without threads, so it requires Chrome/Edge 137+, Safari 27+, Firefox 153+,
-or Node with `--experimental-wasm-jspi`.
+input without threads, and WebAssembly's standard exception handling,
+so it requires Chrome/Edge 137+, Safari 27+, Firefox 153+,
+or Node 24 with `--experimental-wasm-jspi --experimental-wasm-exnref`.

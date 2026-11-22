@@ -1,0 +1,14 @@
+<!doctype html>
+<!-- A check in a browser: serve the repository (python3 -m http.server) and open test/browser.html. -->
+<meta charset="utf-8">
+<title>arm-none-eabi-gdb-wasm</title>
+<link rel="icon" href="data:,">
+
+<pre id="output">Starting GDB in a worker…</pre>
+<script>
+  const output = document.getElementById('output');
+  const show = (text) => { output.textContent += `\n${text}`; };
+  const worker = new Worker('browser-worker.js');
+  worker.onmessage = ({ data }) => show(data);
+  worker.onerror = (event) => show(`Worker error: ${event.message}`);
+</script>

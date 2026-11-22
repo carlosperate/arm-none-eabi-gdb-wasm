@@ -7,10 +7,11 @@ set -euxo pipefail
 PREFIX=/tmp/build/prefix
 export MAKEFLAGS="-j$(nproc)"
 
-# Wasm exceptions, since GDB reports every error by throwing. No -pthread anywhere.
-export CFLAGS="-O2 -fwasm-exceptions -sSUPPORT_LONGJMP=wasm"
+# Wasm exceptions, since GDB reports every error by throwing: the standard ones, as browsers
+# deprecate Emscripten's legacy default. No -pthread anywhere.
+export CFLAGS="-O2 -fwasm-exceptions -sWASM_LEGACY_EXCEPTIONS=0 -sSUPPORT_LONGJMP=wasm"
 export CXXFLAGS="$CFLAGS"
-export LDFLAGS="-fwasm-exceptions -sSUPPORT_LONGJMP=wasm"
+export LDFLAGS="-fwasm-exceptions -sWASM_LEGACY_EXCEPTIONS=0 -sSUPPORT_LONGJMP=wasm"
 
 # Copies, since bootstrapping and building write into the source trees.
 mkdir /tmp/build
