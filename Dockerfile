@@ -1,0 +1,5 @@
+FROM emscripten/emsdk:6.0.13@sha256:fb7864e398acfda863dfcea78b8bc8adad359fa60c6a0bbeb845931de64aa68a
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends bison flex file autoconf automake libtool \
+ && rm -rf /var/lib/apt/lists/*
