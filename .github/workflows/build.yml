@@ -1,0 +1,68 @@
+name: Build & publish
+
+on:
+  push:
+    branches: '**'
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
+      contents: write   # to attach the package and the sources to the release
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Build docker image
+        run: docker build -t arm-none-eabi-gdb-wasm .
+      - name: Build GDB
+        run: docker run --rm -v "$PWD":/proj arm-none-eabi-gdb-wasm bash /proj/build.sh
+
+      - name: Test
+        run: npm test
+
+      # Outside dist/, which the container's root owns.
+      - name: Pack
+        run: |
+          mkdir "$RUNNER_TEMP/package"
+          npm pack --pack-destination "$RUNNER_TEMP/package"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ${{ runner.temp }}/package/*.tgz
+          archive: false
+
+      # Steps below this line only run on a GH release
+
+      - name: Check the version matches the tag
+        if: github.event_name == 'release'
+        run: test "$(node -p 'require("./package.json").version')" = "${GITHUB_REF_NAME#v}"
+
+      - name: Attach the package and the sources to the release
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          source_archive="$RUNNER_TEMP/arm-none-eabi-gdb-wasm-${GITHUB_REF_NAME#v}-sources.tar.gz"
+          git ls-files --recurse-submodules -z | tar --null --no-recursion -czf "$source_archive" -T -
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP"/package/*.tgz "$source_archive" --clobber
+
+      - name: Publish
+        if: github.event_name == 'release'
+        # npm requires an explicit dist-tag for versions with an alpha suffix.
+        run: npm publish "$RUNNER_TEMP"/package/*.tgz --provenance --access public --tag latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
