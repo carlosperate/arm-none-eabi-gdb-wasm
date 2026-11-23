@@ -1,9 +1,14 @@
 // The built GDB in Node: programs for several Arm cores, MI, and a session with a fake target.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
-import { hasJspi, startGdb } from '../lib/index.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+// By the package's name, so Node's `node` export condition picks the entry, as for any user.
+import { hasJspi, startGdb } from 'arm-none-eabi-gdb-wasm';
+import * as browser from '../lib/index.mjs';
 import { fakeTarget } from './fake-target.mjs';
 
 const createGdb = createRequire(import.meta.url)('../dist/gdb.js');
@@ -12,26 +17,31 @@ const program = (core) => readFileSync(new URL(`fixtures/${core}.elf`, import.me
 
 // GDB run to its exit on CLI commands, as `-batch` does.
 async function batch(core, ...commands) {
-  const lines = [];
+  let output = '';
   const gdb = await startGdb({
-    createGdb, wasm, files: { '/program.elf': program(core) },
+    files: { '/program.elf': program(core) },
     args: Object.freeze(['-nx', '-batch', '/program.elf', ...commands.flatMap((command) => ['-ex', command])]),
-    onStdout: (line) => lines.push(line), onStderr: () => {},
+    onStdout: (text) => { output += text; }, onStderr: () => {},
   });
-  return { status: await gdb.exited, output: lines.join('\n') };
+  return { status: await gdb.exited, output };
 }
 
-// GDB over MI, as a debugger's front end drives it.
-async function startMi(core, onSerial) {
+// GDB over MI, as a debugger's front end drives it: records are lines, whatever the writes.
+async function startMi(core, onRemote) {
   const waiters = [];
+  let partial = '';
   const gdb = await startGdb({
-    createGdb, wasm, files: { '/program.elf': program(core) }, args: ['--interpreter=mi2', '-nx', '-q'],
-    onStdout: (line) => {
-      const index = waiters.findIndex((waiter) => line.startsWith(waiter.prefix));
-      if (index >= 0) waiters.splice(index, 1)[0].resolve(line);
+    files: { '/program.elf': program(core) }, args: ['--interpreter=mi2', '-nx', '-q'],
+    onStdout: (text) => {
+      const lines = (partial + text).split('\n');
+      partial = lines.pop();
+      for (const line of lines) {
+        const index = waiters.findIndex((waiter) => line.startsWith(waiter.prefix));
+        if (index >= 0) waiters.splice(index, 1)[0].resolve(line);
+      }
     },
     onStderr: () => {},
-    onSerial,
+    onRemote,
   });
   const next = (prefix) => new Promise((resolve) => waiters.push({ prefix, resolve }));
   let token = 0;
@@ -85,7 +95,7 @@ test('answers MI', async () => {
 
 test('debugs a target over the remote protocol, and pauses it while it runs', async () => {
   let gdb;
-  const target = fakeTarget((bytes) => gdb.serial(bytes));
+  const target = fakeTarget((bytes) => gdb.remote(bytes));
   const session = await startMi('cortex-m4-hard', (bytes) => target.receive(bytes));
   ({ gdb } = session);
   const { mi, next } = session;
@@ -120,6 +130,54 @@ test("gives GDB's exit status, leaving the host's alone", async () => {
   }
 });
 
+// The console's case: GDB's own prompt as printed, and a long answer whole, with no pager. A pager
+// would leave GDB waiting for a key, so the timeout makes that a failure.
+test('passes on the prompt as printed, and never pages', { timeout: 5000 }, async () => {
+  let output = '';
+  let changed = () => {};
+  const gdb = await startGdb({
+    files: { '/program.elf': program('cortex-m4-hard') }, args: ['-nx', '-q', '/program.elf'],
+    onStdout: (text) => { output += text; changed(); }, onStderr: () => {},
+  });
+  const prompt = () => new Promise((resolve) => {
+    changed = () => output.endsWith('(gdb) ') && resolve();
+    changed();
+  });
+  await prompt();
+  output = '';
+  gdb.stdin('help all\n');
+  await prompt();
+  assert.ok(!output.includes('--Type <RET>'), 'GDB paged its output');
+  assert.ok(output.split('\n').length > 1000, `help all gave ${output.split('\n').length} lines`);
+  gdb.stdin('quit\n');
+  assert.equal(await gdb.exited, 0);
+});
+
+test('the browser entry runs the GDB it is given', async () => {
+  let output = '';
+  const gdb = await browser.startGdb({ createGdb, wasm, args: ['--version'], onStdout: (text) => { output += text; } });
+  assert.equal(await gdb.exited, 0);
+  assert.match(output, /^GNU gdb \(GDB\) 17\.2/);
+});
+
+test('the Node entry, once a bundle moves it away from dist/, says what to pass and takes it', async () => {
+  const folder = mkdtempSync(join(tmpdir(), 'gdb-entry-'));
+  try {
+    cpSync(new URL('../lib/', import.meta.url), join(folder, 'lib'), { recursive: true });
+    const moved = await import(pathToFileURL(join(folder, 'lib', 'node.mjs')));
+    await assert.rejects(moved.startGdb(), /could not load GDB from the package's dist\/: a bundled caller passes createGdb and wasm/);
+    const gdb = await moved.startGdb({ createGdb, wasm, args: ['--version'], onStdout: () => {} });
+    assert.equal(await gdb.exited, 0);
+  } finally {
+    rmSync(folder, { recursive: true });
+  }
+});
+
+test('the browser entry says what it needs', async () => {
+  await assert.rejects(browser.startGdb(), /needs createGdb, which dist\/gdb\.js defines/);
+  await assert.rejects(browser.startGdb({ createGdb }), /and wasm, the bytes of dist\/gdb\.wasm/);
+});
+
 // The timeout turns a startup that never settles, the bug this guards, into a failure.
 test('rejects a wasm module that is not GDB', { timeout: 5000 }, async () => {
   const empty = new Uint8Array([0, 0x61, 0x73, 0x6d, 1, 0, 0, 0]);
@@ -131,8 +189,18 @@ test('refuses a host without JSPI, before loading anything', async () => {
   delete WebAssembly.Suspending;
   try {
     assert.equal(hasJspi(), false);
-    await assert.rejects(startGdb({ createGdb, wasm }), /JSPI/);
+    await assert.rejects(startGdb(), /JSPI/);
+    await assert.rejects(browser.startGdb({ createGdb, wasm }), /JSPI/);
   } finally {
     WebAssembly.Suspending = Suspending;
   }
+});
+
+test('LICENSES names every notice the build copies, and nothing else', () => {
+  const folder = fileURLToPath(new URL('../dist/licenses/', import.meta.url));
+  const copied = readdirSync(folder, { recursive: true })
+    .filter((path) => statSync(join(folder, path)).isFile())
+    .map((path) => `dist/licenses/${path}`);
+  const named = readFileSync(new URL('../LICENSES', import.meta.url), 'utf8').match(/dist\/licenses\/\S+/g);
+  assert.deepEqual(named.toSorted(), copied.toSorted());
 });

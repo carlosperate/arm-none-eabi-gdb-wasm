@@ -65,3 +65,15 @@ cp gdb/gdb /proj/dist/gdb.js
 cp gdb/gdb.wasm /proj/dist/gdb.wasm
 ls -l /proj/dist
 gzip -9 -c gdb/gdb.wasm | wc -c
+
+# The notices of everything linked in, from the trees and image just used, where LICENSES says.
+L=/proj/dist/licenses
+mkdir -p $L/{binutils-gdb,gmp,mpfr,expat,emscripten}
+cd /tmp/build/binutils-gdb
+cp --parents COPYING COPYING.LIB COPYING3 COPYING3.LIB libiberty/COPYING.LIB zlib/LICENSE $L/binutils-gdb
+cp /tmp/build/gmp/COPYING{v2,v3,.LESSERv3} $L/gmp
+cp /tmp/build/mpfr/COPYING{,.LESSER} $L/mpfr
+cp /tmp/build/expat/COPYING $L/expat
+cd "$EMSDK/upstream/emscripten"
+cp --parents LICENSE system/lib/libc/musl/COPYRIGHT system/lib/{libcxx,libcxxabi,libunwind,compiler-rt}/LICENSE.TXT \
+  $L/emscripten

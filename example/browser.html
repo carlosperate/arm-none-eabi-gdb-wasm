@@ -1,0 +1,78 @@
+<!doctype html>
+<!-- GDB's console in a page, on a program you pick or the tests' Cortex-M4 one. After a build,
+     `npm run serve` and open http://localhost:8000/example/browser.html -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GDB in the browser</title>
+<link rel="icon" href="data:,">
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1rem; }
+  pre { background: #1e1e1e; color: #d4d4d4; padding: 0.5rem; height: 60vh; overflow: auto; white-space: pre-wrap; }
+  form { display: flex; gap: 0.5rem; }
+  input[name=command] { flex: 1; font-family: monospace; }
+</style>
+
+<label>Program: <input type="file" id="program"></label>
+<pre id="output"></pre>
+<form id="console">
+  <input name="command" placeholder="info line main" autocomplete="off" autofocus>
+  <button>Send</button>
+</form>
+
+<!-- Defines createGdb, as importScripts() does in a classic worker. -->
+<script src="../dist/gdb.js"></script>
+<script type="module">
+  import { hasJspi, startGdb } from '../lib/index.mjs';
+
+  const output = document.getElementById('output');
+  // GDB's text as written, its prompt included, which ends without a newline.
+  const show = (text) => {
+    output.textContent += text;
+    output.scrollTop = output.scrollHeight;
+  };
+  const fetchBytes = async (url) => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`${url}: ${response.status} ${response.statusText}`);
+    return new Uint8Array(await response.arrayBuffer());
+  };
+  let wasm;
+  // The running GDB, once started. Each start waits for the one before, so only one ever runs.
+  let gdb = Promise.resolve();
+
+  // The program keeps its own name in GDB's files, which live in GDB's memory.
+  function start(name, loadProgram) {
+    gdb = gdb.then(async (previous) => {
+      previous?.stdin('quit\n');
+      output.textContent = '';
+      wasm ??= fetchBytes('../dist/gdb.wasm');
+      return startGdb({
+        createGdb,
+        wasm: await wasm,
+        files: { [`/${name}`]: await loadProgram() },
+        args: ['-nx', '-q', `/${name}`],
+        onStdout: show,
+        onStderr: show,
+      });
+    }).catch((error) => show(`Failed: ${error.message}\n`));
+  }
+
+  // GDB reads no terminal, so it never echoes the command: the page does, after the prompt.
+  document.getElementById('console').onsubmit = (event) => {
+    event.preventDefault();
+    const { command } = event.target;
+    const text = command.value;
+    command.value = '';
+    show(`${text}\n`);
+    gdb.then((current) => current?.stdin(`${text}\n`));
+  };
+  document.getElementById('program').onchange = ({ target }) => {
+    const [file] = target.files;  // none when the picker was cancelled
+    if (file) start(file.name, async () => new Uint8Array(await file.arrayBuffer()));
+  };
+
+  if (hasJspi()) {
+    start('cortex-m4-hard.elf', () => fetchBytes('../test/fixtures/cortex-m4-hard.elf'));
+  } else {
+    show('This browser lacks WebAssembly JSPI, which GDB needs.\n');
+  }
+</script>

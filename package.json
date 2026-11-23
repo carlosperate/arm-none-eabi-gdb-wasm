@@ -3,6 +3,7 @@
   "version": "17.2.0-alpha.1",
   "description": "GNU GDB for arm-none-eabi compiled to WebAssembly. Debug bare-metal 32-bit Arm programs from a browser or Node",
   "author": "Carlos Pereira Atencio",
+  "license": "SEE LICENSE IN LICENSES",
   "homepage": "https://github.com/carlosperate/arm-none-eabi-gdb-wasm",
   "repository": {
     "type": "git",
@@ -13,6 +14,10 @@
   },
   "exports": {
     ".": {
+      "node": {
+        "types": "./lib/node.d.mts",
+        "default": "./lib/node.mjs"
+      },
       "types": "./lib/index.d.mts",
       "default": "./lib/index.mjs"
     },
@@ -21,14 +26,17 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "lib/index.mjs",
-    "lib/index.d.mts",
+    "lib/",
     "dist/gdb.js",
     "dist/gdb.wasm",
-    "README.md"
+    "dist/licenses/",
+    "LICENSES",
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
-    "test": "node --experimental-wasm-jspi --experimental-wasm-exnref --test test/*.test.mjs"
+    "test": "node --experimental-wasm-jspi --experimental-wasm-exnref --test test/*.test.mjs",
+    "serve": "npx --yes http-server@14.1.1 -p 8000 -c-1"
   },
   "engines": {
     "node": ">=24"

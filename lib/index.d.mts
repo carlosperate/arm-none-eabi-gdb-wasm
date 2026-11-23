@@ -10,18 +10,18 @@ export type GdbOptions = {
     files?: Record<string, Uint8Array | string>;
     /** GDB's command line, without the program's name, as `['--interpreter=mi2', '-nx', '-q']`. */
     args?: readonly string[];
-    /** GDB's output, a line at a time without its newline; the console when absent. */
-    onStdout?: (line: string) => void;
-    onStderr?: (line: string) => void;
-    /** What GDB writes to `/dev/remote`, its line to the target after `target remote /dev/remote`. */
-    onSerial?: (bytes: Uint8Array) => void;
+    /** GDB's output as it writes it, which can stop mid-line, as its prompt does; the console when absent. */
+    onStdout?: (text: string) => void;
+    onStderr?: (text: string) => void;
+    /** What GDB writes to `/dev/remote`, its remote connection after `target remote /dev/remote`, for the GDB server. */
+    onRemote?: (bytes: Uint8Array) => void;
 };
 
 export type Gdb = {
     /** Text for GDB's standard input, such as an MI command and its newline. */
     stdin(text: string): void;
-    /** Bytes from the target, which GDB reads from `/dev/remote`. */
-    serial(bytes: Uint8Array): void;
+    /** Bytes from the GDB server, which GDB reads from `/dev/remote`. */
+    remote(bytes: Uint8Array): void;
     /** GDB's exit status once it exits; rejects if GDB crashes. */
     exited: Promise<number>;
 };

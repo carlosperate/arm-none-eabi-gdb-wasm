@@ -1,0 +1,74 @@
+This package ships GNU GDB compiled to WebAssembly, with the libraries linked into it, and a small
+loader of its own. Each part keeps its own licence. Every notice travels with the package, in
+dist/licenses/ at the path given below, copied by build.sh from the very sources it built.
+
+1. This package's own code: lib/, example/, test/, build.sh, Dockerfile and the CI workflow
+-------------------------------------------------------------------------------------------
+MIT. Copyright (c) 2026 Carlos Pereira Atencio.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial
+portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+2. GDB: dist/gdb.wasm and dist/gdb.js
+-------------------------------------
+GNU GDB 17.2 for arm-none-eabi, with the parts of its source tree it links: BFD, opcodes,
+libsframe, readline, gdbsupport, libdecnumber, libiberty, gnulib and zlib. GDB, BFD, opcodes,
+libsframe, readline, gdbsupport and libdecnumber are under the GNU GPL version 3 or later, and so
+is the program as a whole. libiberty and gnulib are under the GNU GPL or LGPL file by file, each
+naming version 2, 2.1 or 3, or any later version. zlib is under the zlib licence.
+
+    dist/licenses/binutils-gdb/COPYING3                 GNU GPL version 3
+    dist/licenses/binutils-gdb/COPYING3.LIB             GNU LGPL version 3
+    dist/licenses/binutils-gdb/COPYING                  GNU GPL version 2
+    dist/licenses/binutils-gdb/COPYING.LIB              GNU Library GPL version 2
+    dist/licenses/binutils-gdb/libiberty/COPYING.LIB    GNU LGPL version 2.1
+    dist/licenses/binutils-gdb/zlib/LICENSE             zlib
+
+3. GMP 6.3.0 and MPFR 4.2.2, linked into dist/gdb.wasm
+------------------------------------------------------
+GMP is under the GNU LGPL version 3 or the GNU GPL version 2, or both in parallel. MPFR is under
+the GNU LGPL version 3 or later.
+
+    dist/licenses/gmp/COPYING.LESSERv3
+    dist/licenses/gmp/COPYINGv3
+    dist/licenses/gmp/COPYINGv2
+    dist/licenses/mpfr/COPYING.LESSER
+    dist/licenses/mpfr/COPYING
+
+4. Expat 2.10.0, linked into dist/gdb.wasm
+------------------------------------------
+MIT.
+
+    dist/licenses/expat/COPYING
+
+5. Emscripten 6.0.13's runtime: dist/gdb.js, and its system libraries in dist/gdb.wasm
+-------------------------------------------------------------------------------------
+Emscripten's own code is under the MIT licence or the University of Illinois/NCSA licence. musl,
+its C library, is MIT. libc++, libc++abi, libunwind and compiler-rt are under the Apache License
+2.0 with LLVM Exceptions.
+
+    dist/licenses/emscripten/LICENSE
+    dist/licenses/emscripten/system/lib/libc/musl/COPYRIGHT
+    dist/licenses/emscripten/system/lib/libcxx/LICENSE.TXT
+    dist/licenses/emscripten/system/lib/libcxxabi/LICENSE.TXT
+    dist/licenses/emscripten/system/lib/libunwind/LICENSE.TXT
+    dist/licenses/emscripten/system/lib/compiler-rt/LICENSE.TXT
+
+6. The source
+-------------
+The arm-none-eabi-gdb-wasm-<version>-sources.tar.gz asset on the GitHub release for this package's
+version contains the project checkout, including Dockerfile, build.sh, and the exact source
+trees of GDB, GMP, MPFR and Expat used in the build. The release is at
+https://github.com/carlosperate/arm-none-eabi-gdb-wasm/releases.
