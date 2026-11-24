@@ -41,17 +41,13 @@ It needs WebAssembly JSPI and exception handling: Chrome/Edge 137+, Firefox 153+
 desktop VS Code 1.103+, or Node 24 run with `--experimental-wasm-jspi --experimental-wasm-exnref`.
 `hasJspi()` checks for it before you download 6 MB.
 
-## Getting the source
+## Building
 
-GDB and the three libraries it needs are git submodules in `sources/`, each pinned to its release.
-They are marked shallow in `.gitmodules`, so a clone fetches only the pinned commit, not the decades
-of history in GDB's repository:
+Clone with sumodules:
 
-```sh
+```
 git clone --recurse-submodules https://github.com/carlosperate/arm-none-eabi-gdb-wasm.git
 ```
-
-## Building
 
 In Docker, with the image this repository describes:
 
