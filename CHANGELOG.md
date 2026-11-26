@@ -1,6 +1,6 @@
 # Changelog
 
-## 17.2.0-alpha.1 - Unreleased
+## 17.2.0-alpha.1 - 2026/11/26
 
 - First release: GNU GDB 17.2 for `arm-none-eabi`, compiled to WebAssembly with Emscripten 6.0.13
   and no source patch, with GMP 6.3.0, MPFR 4.2.2 and Expat 2.10.0. One build runs in a browser's

@@ -20,25 +20,32 @@ const server = port && connect(Number(port)).on('error', (error) => {
 // GDB reads whole lines, so readline edits each one, with the arrow keys and a history.
 const prompt = '(gdb) ';
 const terminal = createInterface({ input: process.stdin, output: process.stdout, prompt });
+let closed = false;
 console.log('Type GDB commands, such as "info line main" or "help"; "quit" or Ctrl-D to end.');
 
-const gdb = await startGdb({
+const started = startGdb({
   files: { [program]: readFileSync(path) },
   args: ['-nx', '-q', program],
   // GDB prints its prompt when it waits for a command: readline shows it instead, to edit after it.
   onStdout: (text) => {
     const waiting = text.endsWith(prompt);
     process.stdout.write(waiting ? text.slice(0, -prompt.length) : text);
-    if (waiting) terminal.prompt();
+    if (waiting && !closed) terminal.prompt();
   },
   // GDB's remote protocol, both ways between /dev/remote and the server.
   onRemote: (bytes) => server?.write(bytes),
 });
-server?.on('data', (bytes) => gdb.remote(bytes));
 
+// Input can come, and end, while GDB starts: piped commands, or Ctrl-D as it loads.
+const toGdb = (text) => started.then((gdb) => gdb.stdin(text));
 terminal
-  .on('line', (line) => gdb.stdin(`${line}\n`))
+  .on('line', (line) => toGdb(`${line}\n`))
   .on('SIGINT', () => terminal.close())
-  .on('close', () => gdb.stdin('quit\n'));
+  .on('close', () => {
+    closed = true;
+    toGdb('quit\n');
+  });
 
+const gdb = await started;
+server?.on('data', (bytes) => gdb.remote(bytes));
 process.exit(await gdb.exited);
